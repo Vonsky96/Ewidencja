@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Ewidencja noclegów</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;background:#f4f5f7}
+    *{box-sizing:border-box}
+    body{margin:0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+    header{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:16px;z-index:5}
+    h1{font-size:22px;margin:0}
+    main{max-width:900px;margin:auto;padding:14px}
+    .tabs{display:flex;gap:8px;margin-bottom:14px}
+    .tabs button{flex:1}
+    .card{background:#fff;border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 1px 5px #00000012}
+    label{display:block;font-size:13px;font-weight:600;margin:10px 0 5px}
+    input,select,button{width:100%;font-size:16px;border-radius:10px;border:1px solid #cfd3d8;padding:11px;background:#fff}
+    button{font-weight:700;cursor:pointer}
+    .primary{background:#0a66ff;color:#fff;border-color:#0a66ff}
+    .danger{background:#fff;color:#c00;border-color:#e3a4a4}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .stat{background:#f7f8fa;border-radius:12px;padding:10px}
+    .stat small{display:block;color:#666}
+    .stat strong{font-size:18px}
+    .bar{height:12px;background:#e5e7eb;border-radius:10px;overflow:hidden;margin-top:8px}
+    .bar span{display:block;height:100%;background:#0a66ff;width:0}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{text-align:left;padding:8px;border-bottom:1px solid #eee;white-space:nowrap}
+    .table-wrap{overflow:auto}
+    .hidden{display:none}
+    .row-actions{display:flex;gap:6px}
+    .row-actions button{padding:7px;font-size:12px}
+    .muted{color:#666;font-size:13px}
+    @media(max-width:640px){.grid,.summary{grid-template-columns:1fr}.desktop-only{display:none}}
+    @media print{
+      header,.tabs,.no-print,form{display:none!important}
+      body{background:#fff}
+      main{max-width:none;padding:0}
+      .card{box-shadow:none;border-radius:0}
+      table{font-size:11px}
+      .print-title{display:block!important}
+    }
+  </style>
+</head>
+<body>
+<header><h1>Ewidencja noclegów</h1></header>
+<main>
+  <div class="tabs no-print">
+    <button onclick="showTab('reservations')" class="primary">Rezerwacje</button>
+    <button onclick="showTab('transfers')">Przelewy</button>
+    <button onclick="showTab('costs')">Koszty</button>
+    <button onclick="showTab('settings')">Ustawienia</button>
+  </div>
+
+  <section id="reservations">
+    <div class="card">
+      <h2>Dodaj rezerwację</h2>
+      <form id="reservationForm">
+        <div class="grid">
+          <div><label>Platforma</label><select id="platform" required><option>Booking</option><option>Airbnb</option><option>Bezpośrednio</option></select></div>
+          <div><label>Numer rezerwacji</label><input id="reservationNo" required></div>
+          <div><label>Data rezerwacji</label><input id="reservationDate" type="date" required></div>
+          <div><label>Data zameldowania</label><input id="checkIn" type="date" required></div>
+          <div><label>Data wymeldowania</label><input id="checkOut" type="date" required></div>
+          <div><label>Kwota rezerwacji (zł)</label><input id="amount" type="number" step="0.01" min="0" required></div>
+        </div>
+        <br><button class="primary">Zapisz rezerwację</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Podsumowanie miesiąca</h2>
+      <label>Miesiąc</label><input id="monthFilter" type="month">
+      <div class="summary" style="margin-top:10px">
+        <div class="stat"><small>Suma rezerwacji</small><strong id="monthTotal">0,00 zł</strong></div>
+        <div class="stat"><small>Limit</small><strong id="limitValue">0,00 zł</strong></div>
+        <div class="stat"><small>Pozostało</small><strong id="remainingValue">0,00 zł</strong></div>
+      </div>
+      <div class="bar"><span id="limitBar"></span></div>
+      <p class="muted" id="limitMessage"></p>
+    </div>
+
+    <div class="card">
+      <h2 class="print-title">Ewidencja rezerwacji</h2>
+      <div class="no-print grid">
+        <button onclick="window.print()">Eksportuj / zapisz jako PDF</button>
+        <button onclick="exportCSV()">Eksportuj CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Platforma</th><th>Nr rezerwacji</th><th>Data rezerwacji</th><th>Zameldowanie</th><th>Wymeldowanie</th><th>Kwota rezerwacji</th><th>Data wpływu</th><th>Prowizja</th><th class="no-print">Akcje</th></tr></thead>
+          <tbody id="reservationRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="transfers" class="hidden">
+    <div class="card">
+      <h2>Dodaj przelew</h2>
+      <form id="transferForm">
+        <div class="grid">
+          <div><label>Platforma</label><select id="transferPlatform"><option>Booking</option><option>Airbnb</option></select></div>
+          <div><label>Data wpływu</label><input id="transferDate" type="date" required></div>
+          <div><label>Kwota przelewu (zł)</label><input id="transferAmount" type="number" step="0.01" min="0" required></div>
+        </div>
+        <p class="muted">Zaznacz rezerwacje objęte tym przelewem. Prowizja zostanie wyliczona jako suma zaznaczonych rezerwacji minus kwota przelewu.</p>
+        <div id="transferReservations"></div>
+        <br><button class="primary">Zapisz i rozlicz przelew</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="costs" class="hidden">
+    <div class="card">
+      <h2>Dodaj koszt</h2>
+      <form id="costForm">
+        <div class="grid">
+          <div><label>Data kosztu</label><input id="costDate" type="date" required></div>
+          <div><label>Kategoria</label><select id="costCategory" required><option>Sprzątanie</option><option>Środki czystości</option><option>Wyposażenie</option><option>Naprawy</option><option>Media</option><option>Paliwo</option><option>Inne</option></select></div>
+          <div><label>Opis</label><input id="costDescription" required></div>
+          <div><label>Kwota (zł)</label><input id="costAmount" type="number" step="0.01" min="0" required></div>
+        </div>
+        <br><button class="primary">Zapisz koszt</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Podsumowanie miesiąca</h2>
+      <label>Miesiąc</label><input id="costMonthFilter" type="month">
+      <div class="summary" style="margin-top:10px">
+        <div class="stat"><small>Przychód brutto</small><strong id="costGross">0,00 zł</strong></div>
+        <div class="stat"><small>Prowizje</small><strong id="costCommissions">0,00 zł</strong></div>
+        <div class="stat"><small>Pozostałe koszty</small><strong id="costOther">0,00 zł</strong></div>
+      </div>
+      <div class="summary" style="margin-top:8px">
+        <div class="stat"><small>Dochód netto</small><strong id="costNet">0,00 zł</strong></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="no-print grid">
+        <button onclick="exportCostsCSV()">Eksportuj koszty CSV</button>
+      </div>
+      <div class="table-wrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Data</th><th>Kategoria</th><th>Opis</th><th>Kwota</th><th class="no-print">Akcje</th></tr></thead>
+          <tbody id="costRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="settings" class="hidden">
+    <div class="card">
+      <h2>Ustawienia</h2>
+      <label>Miesięczny limit działalności nierejestrowanej (zł)</label>
+      <input id="monthlyLimit" type="number" step="0.01" min="0">
+      <p class="muted">Limit możesz zmienić w dowolnym momencie. Aplikacja nie aktualizuje go automatycznie.</p>
+      <button class="primary" onclick="saveSettings()">Zapisz ustawienia</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const key='noclegi_app_v1';
+let db=JSON.parse(localStorage.getItem(key)||'{"reservations":[],"transfers":[],"costs":[],"settings":{"limit":0}}');
+if(!db.costs) db.costs=[];
+const money=n=>new Intl.NumberFormat('pl-PL',{style:'currency',currency:'PLN'}).format(Number(n||0));
+const todayMonth=()=>new Date().toISOString().slice(0,7);
+document.getElementById('monthFilter').value=todayMonth();
+document.getElementById('costMonthFilter').value=todayMonth();
+document.getElementById('costDate').value=new Date().toISOString().slice(0,10);
+document.getElementById('monthlyLimit').value=db.settings.limit||'';
+
+function save(){localStorage.setItem(key,JSON.stringify(db));render();}
+function showTab(id){
+  ['reservations','transfers','costs','settings'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('primary'));
+  event.target.classList.add('primary');
+  if(id==='transfers') renderTransferChoices();
+  if(id==='costs') renderCosts();
+}
+document.getElementById('reservationForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  db.reservations.push({
+    id:crypto.randomUUID(), platform:platform.value, no:reservationNo.value.trim(),
+    reservationDate:reservationDate.value, checkIn:checkIn.value, checkOut:checkOut.value,
+    amount:Number(amount.value), transferId:null, incomeDate:'', commission:null
+  });
+  e.target.reset(); save();
+});
+document.getElementById('monthFilter').addEventListener('change',render);
+document.getElementById('costMonthFilter').addEventListener('change',renderCosts);
+function removeReservation(id){
+  if(confirm('Usunąć tę rezerwację?')){db.reservations=db.reservations.filter(r=>r.id!==id);save();}
+}
+function render(){
+  const tbody=document.getElementById('reservationRows'); tbody.innerHTML='';
+  [...db.reservations].sort((a,b)=>b.reservationDate.localeCompare(a.reservationDate)).forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${r.platform}</td><td>${r.no}</td><td>${r.reservationDate}</td><td>${r.checkIn}</td><td>${r.checkOut}</td><td>${money(r.amount)}</td><td>${r.incomeDate||''}</td><td>${r.commission==null?'':money(r.commission)}</td><td class="no-print"><button class="danger" onclick="removeReservation('${r.id}')">Usuń</button></td>`;
+    tbody.appendChild(tr);
+  });
+  const m=monthFilter.value;
+  const total=db.reservations.filter(r=>r.reservationDate.startsWith(m)).reduce((s,r)=>s+r.amount,0);
+  const limit=Number(db.settings.limit||0);
+  monthTotal.textContent=money(total); limitValue.textContent=money(limit); remainingValue.textContent=money(Math.max(limit-total,0));
+  const pct=limit?Math.min(total/limit*100,100):0; limitBar.style.width=pct+'%';
+  limitMessage.textContent=!limit?'Ustaw limit w zakładce Ustawienia.':(total>limit?'Limit został przekroczony o '+money(total-limit)+'.':'Wykorzystano '+pct.toFixed(1)+'% limitu.');
+  monthlyLimit.value=db.settings.limit||'';
+  renderCosts();
+}
+function renderTransferChoices(){
+  const p=transferPlatform.value;
+  const list=db.reservations.filter(r=>r.platform===p && !r.transferId);
+  transferReservations.innerHTML=list.length?list.map(r=>`<label><input style="width:auto" type="checkbox" name="res" value="${r.id}"> ${r.no} — ${r.checkIn} — ${money(r.amount)}</label>`).join(''):'<p class="muted">Brak nierozliczonych rezerwacji.</p>';
+}
+transferPlatform.addEventListener('change',renderTransferChoices);
+document.getElementById('transferForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const ids=[...document.querySelectorAll('input[name=res]:checked')].map(x=>x.value);
+  if(!ids.length){alert('Zaznacz przynajmniej jedną rezerwację.');return;}
+  const selected=db.reservations.filter(r=>ids.includes(r.id));
+  const total=selected.reduce((s,r)=>s+r.amount,0);
+  const payout=Number(transferAmount.value);
+  const commission=total-payout;
+  const tid=crypto.randomUUID();
+  db.transfers.push({id:tid,platform:transferPlatform.value,date:transferDate.value,amount:payout,reservationIds:ids,commission});
+  selected.forEach(r=>{r.transferId=tid;r.incomeDate=transferDate.value;r.commission=commission*(r.amount/total);});
+  e.target.reset(); save(); renderTransferChoices();
+  alert('Przelew zapisany. Łączna prowizja: '+money(commission));
+});
+
+
+document.getElementById('costForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  db.costs.push({
+    id:crypto.randomUUID(),
+    date:costDate.value,
+    category:costCategory.value,
+    description:costDescription.value.trim(),
+    amount:Number(costAmount.value)
+  });
+  e.target.reset();
+  costDate.value=new Date().toISOString().slice(0,10);
+  save();
+});
+function removeCost(id){
+  if(confirm('Usunąć ten koszt?')){db.costs=db.costs.filter(c=>c.id!==id);save();}
+}
+function renderCosts(){
+  const tbody=document.getElementById('costRows');
+  tbody.innerHTML='';
+  [...db.costs].sort((a,b)=>b.date.localeCompare(a.date)).forEach(c=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${c.date}</td><td>${c.category}</td><td>${c.description}</td><td>${money(c.amount)}</td><td class="no-print"><button class="danger" onclick="removeCost('${c.id}')">Usuń</button></td>`;
+    tbody.appendChild(tr);
+  });
+  const m=costMonthFilter.value;
+  const gross=db.reservations.filter(r=>r.reservationDate.startsWith(m)).reduce((s,r)=>s+r.amount,0);
+  const commissions=db.reservations.filter(r=>r.incomeDate && r.incomeDate.startsWith(m) && r.commission!=null).reduce((s,r)=>s+Number(r.commission||0),0);
+  const other=db.costs.filter(c=>c.date.startsWith(m)).reduce((s,c)=>s+c.amount,0);
+  costGross.textContent=money(gross);
+  costCommissions.textContent=money(commissions);
+  costOther.textContent=money(other);
+  costNet.textContent=money(gross-commissions-other);
+}
+function exportCostsCSV(){
+  const rows=[['Data','Kategoria','Opis','Kwota']];
+  db.costs.forEach(c=>rows.push([c.date,c.category,c.description,c.amount]));
+  const csv='\ufeff'+rows.map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(';')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='koszty_noclegi.csv';a.click();
+}
+
+function saveSettings(){db.settings.limit=Number(monthlyLimit.value||0);save();alert('Zapisano limit.');}
+function exportCSV(){
+  const rows=[['Platforma','Nr rezerwacji','Data rezerwacji','Zameldowanie','Wymeldowanie','Kwota rezerwacji','Data wpływu','Prowizja']];
+  db.reservations.forEach(r=>rows.push([r.platform,r.no,r.reservationDate,r.checkIn,r.checkOut,r.amount,r.incomeDate||'',r.commission??'']));
+  const csv='\ufeff'+rows.map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(';')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ewidencja_noclegow.csv';a.click();
+}
+render();
+</script>
+</body>
+</html>
